@@ -2,51 +2,75 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>超強化版！400の役職バトルロイヤル</title>
+<title>超広大・神域版！4900の役職バトルロイヤル</title>
 <style>
     body {
         margin: 0;
-        background-color: #050505;
+        background-color: #000;
         color: #fff;
         font-family: sans-serif;
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
+        justify-content: flex-start;
         min-height: 100vh;
-        overflow: hidden;
+        overflow-x: hidden;
     }
     h1 { margin: 10px 0; font-size: 24px; text-shadow: 0 0 15px #ff0055; }
+    /* エリアが3倍になったため、画面に収まるようにCSSで調整 */
     canvas {
-        background-color: #111122;
-        border: 2px solid #444;
+        background-color: #0a0a1a;
+        border: 2px solid #555;
         border-radius: 8px;
-        box-shadow: 0 0 40px rgba(0, 0, 0, 0.9);
+        box-shadow: 0 0 50px rgba(0, 0, 0, 0.9);
+        max-width: 95vw;
+        max-height: 80vh;
+        width: 100%;
+        height: auto;
     }
-    #controls { margin-top: 15px; }
+    #controls { margin: 15px 0; }
     button {
-        padding: 10px 20px; font-size: 16px; cursor: pointer;
-        background: linear-gradient(45deg, #ff0055, #ffaa00);
+        padding: 10px 25px; font-size: 18px; cursor: pointer;
+        background: linear-gradient(45deg, #ff0055, #aa00ff);
         color: white; border: none; border-radius: 5px; font-weight: bold;
         box-shadow: 0 0 15px rgba(255, 0, 85, 0.6);
     }
-    button:hover { filter: brightness(1.2); }
+    button:hover { filter: brightness(1.3); }
 </style>
 </head>
 <body>
 
-<h1>超強化版！400の役職バトルロイヤル</h1>
-<canvas id="gameCanvas" width="1000" height="700"></canvas>
+<h1>超広大・神域版！4900の役職バトルロイヤル</h1>
 <div id="controls">
     <button onclick="location.reload()">新たな100人を戦わせる</button>
 </div>
+<canvas id="gameCanvas" width="3000" height="2100"></canvas>
 
 <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    const adjectives = ["炎の", "氷の", "雷の", "光の", "闇の", "風の", "土の", "毒の", "鉄の", "幻の", "水の", "星の", "竜の", "霊の", "血の", "鋼の", "獣の", "聖なる", "魔の", "影の"];
-    const nouns = ["戦士", "魔法使い", "僧侶", "盗賊", "狩人", "騎士", "暗殺者", "召喚士", "賢者", "武闘家", "狂戦士", "狙撃手", "踊り子", "巨漢", "吸血鬼", "死霊術師", "錬金術師", "吟遊詩人", "侍", "忍者"];
+    // 既存20種 + 追加50種 = 計70種
+    const adjectives = [
+        "炎の", "氷の", "雷の", "光の", "闇の", "風の", "土の", "毒の", "鉄の", "幻の", 
+        "水の", "星の", "竜の", "霊の", "血の", "鋼の", "獣の", "聖なる", "魔の", "影の",
+        "太陽の", "月の", "宇宙の", "爆炎の", "絶対零度の", "疾風の", "轟雷の", "漆黒の", "閃光の", "猛毒の",
+        "黄金の", "白銀の", "銅の", "泥の", "砂の", "結晶の", "音の", "磁力の", "重力の", "時間の",
+        "空間の", "夢の", "悪夢の", "奇跡の", "絶望の", "希望の", "呪いの", "祝福の", "怒りの", "悲しみの",
+        "喜びの", "愛の", "憎しみの", "虚無の", "混沌の", "秩序の", "創造の", "破壊の", "生命の", "死の",
+        "狂気の", "運命の", "業火の", "神の", "悪魔の", "精霊の", "妖精の", "鬼の", "修羅の", "仏の"
+    ];
+
+    // 既存20種 + 追加50種 = 計70種
+    const nouns = [
+        "戦士", "魔法使い", "僧侶", "盗賊", "狩人", "騎士", "暗殺者", "召喚士", "賢者", "武闘家", 
+        "狂戦士", "狙撃手", "踊り子", "巨漢", "吸血鬼", "死霊術師", "錬金術師", "吟遊詩人", "侍", "忍者",
+        "魔王", "勇者", "銃士", "海賊", "傭兵", "槍使い", "弓使い", "斧使い", "力士", "プロレスラー",
+        "預言者", "占い師", "遊び人", "商人", "貴族", "王様", "皇帝", "奴隷", "英雄", "覇王",
+        "守護者", "破壊者", "創造主", "冒険者", "旅人", "亡霊", "ゾンビ", "ゴーレム", "サイボーグ", "エイリアン",
+        "スライム", "ドラゴン", "デーモン", "エンジェル", "退魔師", "魔物使い", "調教師", "ギャンブラー", "道化師", "料理人",
+        "鍛冶屋", "木こり", "釣り人", "農民", "学者", "発明家", "機工士", "メイド", "執事", "怪盗"
+    ];
     
     let roles = [];
     for (let a of adjectives) for (let n of nouns) roles.push({ name: a + n, adj: a, noun: n });
@@ -57,13 +81,13 @@
     let trails = [];
     let particles = [];
 
-    // エリアの縮小スピードを大幅に低下
+    // キャンバスが3倍になったので、安全エリアの初期半径も3倍（2700）に設定
     let safeZone = {
         x: canvas.width / 2,
         y: canvas.height / 2,
-        r: 900, 
-        targetX: Math.random() * (canvas.width - 300) + 150,
-        targetY: Math.random() * (canvas.height - 300) + 150
+        r: 2700, 
+        targetX: Math.random() * (canvas.width - 600) + 300,
+        targetY: Math.random() * (canvas.height - 600) + 300
     };
 
     class Particle {
@@ -96,10 +120,11 @@
             this.noun = roleObj.noun;
             this.isClone = isClone;
             
-            this.r = 14;
-            this.baseSpeed = Math.random() * 1.5 + 1.2;
-            this.maxHp = Math.floor(Math.random() * 60) + 60; 
-            this.attack = Math.floor(Math.random() * 8) + 8;
+            // キャンバスが広いので、基本サイズとスピードを少しアップ
+            this.r = 22;
+            this.baseSpeed = Math.random() * 2.5 + 2.0;
+            this.maxHp = Math.floor(Math.random() * 150) + 100; 
+            this.attack = Math.floor(Math.random() * 15) + 10;
             this.color = `hsl(${Math.random() * 360}, 100%, 60%)`;
             this.opacity = 1.0;
 
@@ -108,26 +133,34 @@
             this.burn = 0; this.slow = 0; this.poison = 0;
             this.cooldown = 0; this.timer = 0; this.kills = 0;
 
-            // 超強化された属性
+            // 属性の能力
             switch(this.adj) {
-                case "雷の": this.baseSpeed *= 2.5; break; // 超速
-                case "土の": this.defense += 15; break; // 鉄壁
+                case "雷の": case "轟雷の": case "閃光の": this.baseSpeed *= 2.5; break;
+                case "土の": case "鋼の": case "結晶の": this.defense += 30; this.knockbackResist = 0.1; break;
                 case "鉄の": this.reflect = true; break;
-                case "幻の": this.evasion += 0.50; break; // 50%回避
-                case "水の": this.immune = true; break;
-                case "竜の": this.maxHp *= 3.0; this.attack *= 2.0; this.r += 6; break; // ボス級ステータス
-                case "霊の": this.ignoreDef = true; this.opacity = 0.7; break;
-                case "血の": this.maxHp *= 0.3; this.attack *= 5.0; break; // 超特化ガラス大砲
-                case "鋼の": this.maxHp *= 3.0; this.baseSpeed *= 0.5; this.knockbackResist = 0.05; break;
-                case "影の": this.evasion += 0.6; this.opacity = 0.4; break;
+                case "幻の": case "夢の": case "影の": this.evasion += 0.5; this.opacity = 0.5; break;
+                case "水の": case "生命の": this.immune = true; break;
+                case "竜の": case "神の": case "悪魔の": case "創造の": case "破壊の":
+                    this.maxHp *= 5.0; this.attack *= 4.0; this.r += 15; break; // 新規ボスクラス
+                case "霊の": case "虚無の": this.ignoreDef = true; this.opacity = 0.7; break;
+                case "血の": case "狂気の": case "絶望の": this.maxHp *= 0.3; this.attack *= 6.0; break;
             }
 
-            // 超強化された職業
+            // 職業の能力
             switch(this.noun) {
-                case "戦士": this.maxHp += 80; this.attack += 10; break;
-                case "巨漢": this.r *= 3.0; this.maxHp *= 5.0; this.knockbackResist = 0.1; break; // 超巨大化
-                case "狙撃手": this.baseSpeed *= 0.1; break;
-                case "侍": this.firstStrike = true; break; // 一撃必殺フラグ
+                case "戦士": case "剣士": case "斧使い": this.maxHp += 150; this.attack += 20; break;
+                case "巨漢": case "力士": case "ゴーレム": this.r *= 3.5; this.maxHp *= 6.0; this.knockbackResist = 0; break;
+                case "狙撃手": 
+                    // 狙撃手の超強化（体力は低いが、攻撃力が規格外）
+                    this.maxHp *= 0.5;
+                    this.attack *= 50; 
+                    this.baseSpeed *= 0.05; // ほぼ動けない
+                    break;
+                case "侍": case "剣聖": this.firstStrike = true; break;
+                case "魔王": case "勇者": case "覇王": case "皇帝": case "創造主":
+                    this.maxHp *= 6.0; this.attack *= 5.0; this.r += 20; break; // 新規ボスクラス
+                case "遊び人": case "道化師": case "ギャンブラー": this.evasion += 0.6; break;
+                case "スライム": case "ゾンビ": this.immune = true; this.maxHp *= 0.8; break;
             }
 
             this.hp = this.maxHp;
@@ -147,32 +180,30 @@
             // エリア外ダメージ
             let distToSafe = Math.hypot(this.x - safeZone.x, this.y - safeZone.y);
             if (distToSafe > safeZone.r) {
-                this.hp -= 0.5; // エリアダメージも少し増加
-                if(this.timer % 5 === 0) createExplosion(this.x, this.y, "red", 2, 3, 2);
+                this.hp -= 1.0; 
+                if(this.timer % 5 === 0) createExplosion(this.x, this.y, "red", 3, 5, 3);
             }
 
-            // 状態異常（ダメージ倍増）
-            if (this.burn > 0) { this.hp -= 0.5; this.burn--; createExplosion(this.x, this.y, "orange", 1, 3, 1); }
+            // 状態異常
+            if (this.burn > 0) { this.hp -= 1.0; this.burn--; createExplosion(this.x, this.y, "orange", 1, 4, 2); }
             if (this.poison > 0) { this.hp -= this.maxHp * 0.005; this.poison--; }
             if (this.slow > 0) { this.currentSpeed = this.baseSpeed * 0.2; this.slow--; } else { this.currentSpeed = this.baseSpeed; }
 
-            // アクティブ能力（ぶっ壊れ化）
-            if (this.noun === "魔法使い" && this.timer % 60 === 0) this.shoot8Way(6, this.attack); // 8方向弾幕
-            if (this.noun === "狙撃手" && this.timer % 80 === 0) this.shoot(30, this.attack * 8, true); // 弾速30・威力8倍レーザー
-            if (this.noun === "錬金術師" && this.timer % 15 === 0) trails.push({ x: this.x, y: this.y, life: 200, owner: this, r: 40 }); // 超巨大毒沼
-            if (this.noun === "僧侶" && this.hp < this.maxHp * 0.5 && !this.usedPriestHeal) {
-                this.hp += this.maxHp * 1.5; this.usedPriestHeal = true; // HP1.5倍分の大回復
-                createExplosion(this.x, this.y, "lime", 50, 5, 5);
+            // アクティブ能力
+            if (["魔法使い", "魔女", "妖術師"].includes(this.noun) && this.timer % 60 === 0) this.shoot8Way(12, this.attack);
+            
+            // 狙撃手・ガンナーの極太即死レーザー
+            if (["狙撃手", "スナイパー", "ガンナー"].includes(this.noun) && this.timer % 90 === 0) {
+                this.shoot(60, this.attack * 100, true); // 弾速60、ダメージ100倍（数万ダメージ）
             }
-            if (this.noun === "踊り子" && this.timer % 20 === 0) {
-                const angle = Math.random() * Math.PI * 2;
-                this.vx = Math.cos(angle) * this.currentSpeed * 6; // 超高速ステップ
-                this.vy = Math.sin(angle) * this.currentSpeed * 6;
-                createExplosion(this.x, this.y, this.color, 10, 4, 2);
+            
+            if (["錬金術師", "毒の", "猛毒の"].includes(this.adj) && this.timer % 15 === 0) trails.push({ x: this.x, y: this.y, life: 250, owner: this, r: 60 });
+            if (["僧侶", "神官", "司教"].includes(this.noun) && this.hp < this.maxHp * 0.5 && !this.usedPriestHeal) {
+                this.hp += this.maxHp * 2.0; this.usedPriestHeal = true;
+                createExplosion(this.x, this.y, "lime", 60, 8, 6);
             }
-            if (this.adj === "聖なる" && this.timer % 80 === 0) this.shield = true; // バリア頻度UP
-            if (this.noun === "忍者" && this.timer % 100 === 0) {
-                createExplosion(this.x, this.y, "white", 20, 4, 4);
+            if (["忍者", "怪盗"].includes(this.noun) && this.timer % 80 === 0) {
+                createExplosion(this.x, this.y, "white", 30, 6, 5);
                 this.teleportBehindNearest();
             }
 
@@ -197,52 +228,51 @@
                 let dist = Math.hypot(dx, dy);
 
                 if (dist < this.r + other.r) {
-                    let push = 5 * this.knockbackResist;
-                    if (this.adj === "風の") { push = 40 * this.knockbackResist; createExplosion(this.x, this.y, "white", 10, 3, 8); } // 画面端まで飛ぶノックバック
+                    let push = 10 * this.knockbackResist;
+                    if (["風の", "疾風の", "爆炎の"].includes(this.adj)) { push = 60 * this.knockbackResist; createExplosion(this.x, this.y, "white", 15, 5, 10); } 
                     this.vx = (dx / dist) * push; this.vy = (dy / dist) * push;
 
                     if (this.cooldown === 0) {
                         this.dealDamageTo(other);
-                        this.cooldown = this.noun === "武闘家" ? 2 : 10; // 武闘家はクールタイムほぼゼロのラッシュ
-                        if (other.noun === "騎士") other.cooldown = 20;
+                        this.cooldown = ["武闘家", "拳法家", "格闘家"].includes(this.noun) ? 2 : 12;
+                        if (["騎士", "守護者"].includes(other.noun)) other.cooldown = 20;
                     }
                 }
             }
         }
 
         dealDamageTo(target) {
-            if (Math.random() < target.evasion && !this.ignoreDef) { createExplosion(target.x, target.y, "gray", 5, 2, 2); return; }
-            if (target.shield) { target.shield = false; createExplosion(target.x, target.y, "gold", 20, 4, 5); return; }
+            if (Math.random() < target.evasion && !this.ignoreDef) { createExplosion(target.x, target.y, "gray", 8, 3, 3); return; }
+            if (target.shield) { target.shield = false; createExplosion(target.x, target.y, "gold", 30, 6, 8); return; }
 
-            // 狂戦士はHPが減ると最大4倍のダメージ
-            let actualDamage = this.noun === "狂戦士" ? this.attack * (1 + (3 * (1 - this.hp / this.maxHp))) : this.attack;
+            let actualDamage = ["狂戦士", "破壊者"].includes(this.noun) ? this.attack * (1 + (4 * (1 - this.hp / this.maxHp))) : this.attack;
             
-            if (this.noun === "暗殺者" && Math.random() < 0.20) { 
-                actualDamage *= 10; // クリティカル10倍
-                createExplosion(target.x, target.y, "red", 40, 6, 10);
+            if (["暗殺者", "忍者"].includes(this.noun) && Math.random() < 0.25) { 
+                actualDamage *= 15; 
+                createExplosion(target.x, target.y, "red", 50, 8, 12);
             }
             if (this.firstStrike) { 
-                actualDamage *= 20; this.firstStrike = false; // 侍の初撃20倍
-                createExplosion(target.x, target.y, "white", 60, 5, 15);
+                actualDamage *= 30; this.firstStrike = false; 
+                createExplosion(target.x, target.y, "white", 80, 7, 20);
             }
 
             if (!this.ignoreDef) actualDamage = Math.max(1, actualDamage - target.defense);
             target.hp -= actualDamage;
-            createExplosion(target.x, target.y, this.color, 5, 3, 4);
+            createExplosion(target.x, target.y, this.color, 8, 4, 6);
 
             if (!target.immune) {
-                if (this.adj === "炎の") target.burn = 120;
-                if (this.adj === "氷の") target.slow = 120;
-                if (this.adj === "毒の") target.poison = 120;
+                if (["炎の", "爆炎の", "業火の", "太陽の"].includes(this.adj)) target.burn = 150;
+                if (["氷の", "絶対零度の"].includes(this.adj)) target.slow = 150;
+                if (["毒の", "猛毒の"].includes(this.adj)) target.poison = 150;
             }
 
-            if (this.adj === "闇の") this.hp = Math.min(this.maxHp, this.hp + actualDamage); // 吸血100%
-            if (target.adj === "鉄の") this.hp -= actualDamage * 0.8; // 反射80%
+            if (["闇の", "悪魔の"].includes(this.adj)) this.hp = Math.min(this.maxHp, this.hp + actualDamage);
+            if (target.adj === "鉄の") this.hp -= actualDamage * 0.8; 
 
             if (target.hp <= 0) {
                 this.kills++;
-                createExplosion(target.x, target.y, target.color, 80, 5, 10);
-                if (this.noun === "吸血鬼") { this.hp = this.maxHp; createExplosion(this.x, this.y, "red", 30, 4, 4); }
+                createExplosion(target.x, target.y, target.color, 120, 8, 15);
+                if (["吸血鬼", "ヴァンパイアハンター"].includes(this.noun)) { this.hp = this.maxHp; createExplosion(this.x, this.y, "red", 40, 6, 6); }
                 handleDeath(target);
             }
         }
@@ -252,25 +282,25 @@
             if (!target) return;
             let dx = target.x - this.x; let dy = target.y - this.y;
             let dist = Math.hypot(dx, dy);
+            // レーザーなら極太(サイズ20)、超寿命
             projectiles.push({
                 x: this.x, y: this.y, vx: (dx/dist)*speed, vy: (dy/dist)*speed,
-                dmg: dmg, owner: this, life: isLaser ? 200 : 100, size: isLaser ? 12 : 5, color: isLaser ? "#ff00ff" : "cyan"
+                dmg: dmg, owner: this, life: isLaser ? 300 : 150, size: isLaser ? 25 : 8, color: isLaser ? "#ff00ff" : "cyan"
             });
         }
 
         shoot8Way(speed, dmg) {
-            // 魔法使いの8方向弾幕
             for (let i = 0; i < 8; i++) {
                 let angle = (Math.PI / 4) * i;
                 projectiles.push({
                     x: this.x, y: this.y, vx: Math.cos(angle) * speed, vy: Math.sin(angle) * speed,
-                    dmg: dmg, owner: this, life: 100, size: 6, color: "#00ffff"
+                    dmg: dmg, owner: this, life: 150, size: 10, color: "#00ffff"
                 });
             }
         }
 
         getNearestEnemy() {
-            let target = null, minDist = 9999;
+            let target = null, minDist = 99999;
             for (let c of circles) {
                 if (c.id !== this.id && c.hp > 0) {
                     let d = Math.hypot(this.x - c.x, this.y - c.y);
@@ -282,7 +312,7 @@
 
         teleportBehindNearest() {
             let target = this.getNearestEnemy();
-            if (target) { this.x = target.x - target.vx * 20; this.y = target.y - target.vy * 20; }
+            if (target) { this.x = target.x - target.vx * 30; this.y = target.y - target.vy * 30; }
         }
 
         draw() {
@@ -290,38 +320,37 @@
             ctx.globalAlpha = this.opacity;
 
             if (this.shield) {
-                ctx.beginPath(); ctx.arc(this.x, this.y, this.r + 8, 0, Math.PI * 2);
-                ctx.strokeStyle = "gold"; ctx.lineWidth = 4; ctx.stroke();
+                ctx.beginPath(); ctx.arc(this.x, this.y, this.r + 12, 0, Math.PI * 2);
+                ctx.strokeStyle = "gold"; ctx.lineWidth = 6; ctx.stroke();
             }
 
             ctx.beginPath(); ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
             ctx.fillStyle = this.color; ctx.fill();
-            ctx.strokeStyle = "#fff"; ctx.lineWidth = 2; ctx.stroke();
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 3; ctx.stroke();
             
             ctx.globalAlpha = 1.0;
-            ctx.fillStyle = "#fff"; ctx.font = "12px sans-serif"; ctx.textAlign = "center";
-            ctx.fillText(this.isClone ? "分身" : this.roleName, this.x, this.y - this.r - 10);
+            ctx.fillStyle = "#fff"; ctx.font = "bold 16px sans-serif"; ctx.textAlign = "center";
+            ctx.fillText(this.isClone ? "分身" : this.roleName, this.x, this.y - this.r - 15);
 
-            const barWidth = this.r * 2.5; // 丸の大きさに合わせてHPバーも大きく
-            ctx.fillStyle = "red"; ctx.fillRect(this.x - barWidth / 2, this.y - this.r - 6, barWidth, 5);
-            ctx.fillStyle = "lime"; ctx.fillRect(this.x - barWidth / 2, this.y - this.r - 6, barWidth * (this.hp / this.maxHp), 5);
+            const barWidth = this.r * 2.5; 
+            ctx.fillStyle = "red"; ctx.fillRect(this.x - barWidth / 2, this.y - this.r - 10, barWidth, 8);
+            ctx.fillStyle = "lime"; ctx.fillRect(this.x - barWidth / 2, this.y - this.r - 10, barWidth * (this.hp / this.maxHp), 8);
         }
     }
 
     function handleDeath(deadCircle) {
-        if (deadCircle.noun === "召喚士" && !deadCircle.isClone) {
-            for(let i=0; i<5; i++) { // 召喚士の分身が5体に増量
-                let clone = new Circle(deadCircle.id, {name: "分身", adj: "無", noun: "無"}, true, deadCircle.x + (Math.random()*60-30), deadCircle.y + (Math.random()*60-30));
-                clone.maxHp = 60; clone.hp = 60; clone.attack = deadCircle.attack; clone.r = 12; clone.color = deadCircle.color;
+        if (["召喚士", "魔物使い"].includes(deadCircle.noun) && !deadCircle.isClone) {
+            for(let i=0; i<6; i++) {
+                let clone = new Circle(deadCircle.id, {name: "分身", adj: "無", noun: "無"}, true, deadCircle.x + (Math.random()*100-50), deadCircle.y + (Math.random()*100-50));
+                clone.maxHp = 100; clone.hp = 100; clone.attack = deadCircle.attack; clone.r = 15; clone.color = deadCircle.color;
                 circles.push(clone);
-                createExplosion(clone.x, clone.y, "purple", 15, 4, 5);
+                createExplosion(clone.x, clone.y, "purple", 20, 6, 8);
             }
         }
         for (let c of circles) {
-            if (c.hp > 0 && c.noun === "死霊術師") {
-                // 死霊術師のレイドボス化（ステータス激増）
-                c.maxHp += 40; c.hp += 40; c.attack += 8; c.r += 1.5;
-                createExplosion(c.x, c.y, "black", 20, 5, 3);
+            if (c.hp > 0 && ["死霊術師", "ネクロマンサー", "悪魔の"].includes(c.noun || c.adj)) {
+                c.maxHp += 80; c.hp += 80; c.attack += 15; c.r += 2;
+                createExplosion(c.x, c.y, "black", 30, 7, 5);
             }
         }
     }
@@ -329,23 +358,22 @@
     for (let i = 0; i < 100; i++) circles.push(new Circle(i, roles[i]));
 
     function loop() {
-        ctx.fillStyle = "#111122"; ctx.fillRect(0, 0, canvas.width, canvas.height);
+        ctx.fillStyle = "#0a0a1a"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-        // エリアの縮小スピードを0.35 -> 0.08に大幅低下
-        safeZone.r -= 0.08; 
+        // エリア縮小
+        safeZone.r -= 0.25; 
         if (safeZone.r < 0) safeZone.r = 0;
-        // 中心の移動スピードも低下
-        safeZone.x += (safeZone.targetX - safeZone.x) * 0.001; 
-        safeZone.y += (safeZone.targetY - safeZone.y) * 0.001;
+        safeZone.x += (safeZone.targetX - safeZone.x) * 0.0015; 
+        safeZone.y += (safeZone.targetY - safeZone.y) * 0.0015;
 
         // 毒沼
         for (let i = trails.length - 1; i >= 0; i--) {
             let t = trails[i]; t.life--;
-            ctx.fillStyle = `rgba(148, 0, 211, ${t.life / 200 * 0.7})`;
+            ctx.fillStyle = `rgba(148, 0, 211, ${t.life / 250 * 0.7})`;
             ctx.beginPath(); ctx.arc(t.x, t.y, t.r, 0, Math.PI*2); ctx.fill();
             for (let c of circles) {
                 if (c.hp > 0 && c.id !== t.owner.id && Math.hypot(c.x - t.x, c.y - t.y) < t.r + c.r) {
-                    if(!c.immune) { c.hp -= 0.8; createExplosion(c.x, c.y, "purple", 2, 3, 2); }
+                    if(!c.immune) { c.hp -= 2.0; createExplosion(c.x, c.y, "purple", 2, 4, 3); }
                 }
             }
             if (t.life <= 0) trails.splice(i, 1);
@@ -355,7 +383,7 @@
         for (let i = projectiles.length - 1; i >= 0; i--) {
             let p = projectiles[i];
             p.x += p.vx; p.y += p.vy; p.life--;
-            ctx.fillStyle = p.color; ctx.shadowBlur = 15; ctx.shadowColor = p.color;
+            ctx.fillStyle = p.color; ctx.shadowBlur = 20; ctx.shadowColor = p.color;
             ctx.beginPath(); ctx.arc(p.x, p.y, p.size, 0, Math.PI*2); ctx.fill();
             ctx.shadowBlur = 0; 
 
@@ -380,26 +408,26 @@
         }
 
         // ストーム描画
-        ctx.fillStyle = "rgba(255, 0, 0, 0.25)";
+        ctx.fillStyle = "rgba(255, 0, 0, 0.2)";
         ctx.beginPath();
         ctx.rect(0, 0, canvas.width, canvas.height); 
         ctx.arc(safeZone.x, safeZone.y, safeZone.r, 0, Math.PI * 2, true); 
         ctx.fill();
 
-        ctx.strokeStyle = "rgba(255, 50, 50, 0.9)"; ctx.lineWidth = 4;
+        ctx.strokeStyle = "rgba(255, 50, 50, 0.8)"; ctx.lineWidth = 6;
         ctx.beginPath(); ctx.arc(safeZone.x, safeZone.y, safeZone.r, 0, Math.PI * 2); ctx.stroke();
 
-        ctx.fillStyle = "#fff"; ctx.font = "20px sans-serif"; ctx.textAlign = "left";
-        ctx.fillText("生存者: " + aliveCount, 15, 30);
+        ctx.fillStyle = "#fff"; ctx.font = "bold 40px sans-serif"; ctx.textAlign = "left";
+        ctx.fillText("生存者: " + aliveCount, 30, 60);
 
         if (aliveCount <= 1) {
             ctx.fillStyle = "rgba(0, 0, 0, 0.8)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
-            ctx.textAlign = "center"; ctx.font = "50px sans-serif"; ctx.fillStyle = "#FFD700";
-            ctx.shadowBlur = 20; ctx.shadowColor = "#FFD700";
+            ctx.textAlign = "center"; ctx.font = "bold 80px sans-serif"; ctx.fillStyle = "#FFD700";
+            ctx.shadowBlur = 30; ctx.shadowColor = "#FFD700";
             if (aliveCount === 1 && mainWinner) {
-                ctx.fillText("👑 勝者: " + mainWinner.roleName + " 👑", canvas.width / 2, canvas.height / 2 - 20);
-                ctx.font = "24px sans-serif"; ctx.shadowBlur = 0;
-                ctx.fillText(`撃破数: ${mainWinner.kills} / 残りHP: ${Math.floor(mainWinner.hp)}`, canvas.width / 2, canvas.height / 2 + 30);
+                ctx.fillText("👑 勝者: " + mainWinner.roleName + " 👑", canvas.width / 2, canvas.height / 2 - 40);
+                ctx.font = "40px sans-serif"; ctx.shadowBlur = 0;
+                ctx.fillText(`撃破数: ${mainWinner.kills} / 残りHP: ${Math.floor(mainWinner.hp)}`, canvas.width / 2, canvas.height / 2 + 50);
             } else {
                 ctx.fillText("引き分け (全滅)", canvas.width / 2, canvas.height / 2);
             }
