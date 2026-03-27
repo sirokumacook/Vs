@@ -2,29 +2,30 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>100の役職バトルロイヤル</title>
+<title>400の役職バトルロイヤル（100人対戦）</title>
 <style>
     body {
         margin: 0;
-        background-color: #1a1a1a;
-        color: #eeeeee;
+        background-color: #111;
+        color: #eee;
         font-family: sans-serif;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         min-height: 100vh;
+        overflow: hidden;
     }
     h1 {
-        margin-top: 10px;
-        margin-bottom: 10px;
+        margin: 10px 0;
         font-size: 24px;
+        text-shadow: 0 0 10px rgba(255,255,255,0.5);
     }
     canvas {
-        background-color: #2a2a2a;
+        background-color: #222;
         border: 2px solid #555;
         border-radius: 8px;
-        box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+        box-shadow: 0 0 20px rgba(0, 0, 0, 0.8);
     }
     #controls {
         margin-top: 15px;
@@ -33,192 +34,413 @@
         padding: 10px 20px;
         font-size: 16px;
         cursor: pointer;
-        background-color: #4CAF50;
+        background-color: #d32f2f;
         color: white;
         border: none;
         border-radius: 5px;
+        font-weight: bold;
+        transition: 0.2s;
     }
-    button:hover {
-        background-color: #45a049;
-    }
+    button:hover { background-color: #b71c1c; }
 </style>
 </head>
 <body>
 
-<h1>100の役職バトルロイヤル</h1>
+<h1>400の役職バトルロイヤル</h1>
 <canvas id="gameCanvas" width="1000" height="700"></canvas>
 <div id="controls">
-    <button onclick="location.reload()">もう一度戦わせる</button>
+    <button onclick="location.reload()">新たな100人を戦わせる</button>
 </div>
 
 <script>
     const canvas = document.getElementById("gameCanvas");
     const ctx = canvas.getContext("2d");
 
-    // 10種類の属性と10種類の職業を組み合わせて、100種類のユニークな役職を自動生成します
-    const adjectives = ["炎の", "氷の", "雷の", "光の", "闇の", "風の", "土の", "毒の", "鉄の", "幻の"];
-    const nouns = ["戦士", "魔法使い", "僧侶", "盗賊", "狩人", "騎士", "暗殺者", "召喚士", "賢者", "武闘家"];
-    let roles = [];
+    // --- 20の属性と20の職業 ---
+    const adjectives = ["炎の", "氷の", "雷の", "光の", "闇の", "風の", "土の", "毒の", "鉄の", "幻の", "水の", "星の", "竜の", "霊の", "血の", "鋼の", "獣の", "聖なる", "魔の", "影の"];
+    const nouns = ["戦士", "魔法使い", "僧侶", "盗賊", "狩人", "騎士", "暗殺者", "召喚士", "賢者", "武闘家", "狂戦士", "狙撃手", "踊り子", "巨漢", "吸血鬼", "死霊術師", "錬金術師", "吟遊詩人", "侍", "忍者"];
     
+    let roles = [];
     for (let a of adjectives) {
         for (let n of nouns) {
-            roles.push(a + n);
+            roles.push({ name: a + n, adj: a, noun: n });
         }
     }
 
-    // 役職をシャッフル
+    // 400の役職をシャッフル
     for (let i = roles.length - 1; i > 0; i--) {
         const j = Math.floor(Math.random() * (i + 1));
         [roles[i], roles[j]] = [roles[j], roles[i]];
     }
 
+    // ゲーム内オブジェクト管理
+    let circles = [];
+    let projectiles = [];
+    let trails = [];
+    let particles = [];
+
     class Circle {
-        constructor(id, role) {
-            this.id = id;
-            this.role = role;
-            this.r = 12; // 丸の大きさ
+        constructor(id, roleObj, isClone = false, startX, startY) {
+            this.id = isClone ? id + "_clone" : id;
+            this.roleName = roleObj.name;
+            this.adj = roleObj.adj;
+            this.noun = roleObj.noun;
+            this.isClone = isClone;
             
-            // ランダムな初期位置（画面内に収まるように）
-            this.x = Math.random() * (canvas.width - this.r * 2) + this.r;
-            this.y = Math.random() * (canvas.height - this.r * 2) + this.r;
-            
-            // ランダムな速度と移動方向
-            this.speed = Math.random() * 2 + 1; // 1.0 ~ 3.0
-            const angle = Math.random() * Math.PI * 2;
-            this.vx = Math.cos(angle) * this.speed;
-            this.vy = Math.sin(angle) * this.speed;
-            
-            // ランダムな色
+            // 基本ステータス
+            this.r = 12;
+            this.baseSpeed = Math.random() * 1.5 + 1.0;
+            this.maxHp = Math.floor(Math.random() * 50) + 50; 
+            this.attack = Math.floor(Math.random() * 8) + 6;
             this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
+            this.opacity = 1.0;
+
+            // 特殊能力用フラグ・変数
+            this.evasion = 0;
+            this.defense = 0;
+            this.knockbackResist = 1.0;
+            this.ignoreDef = false;
+            this.immune = false;
+            this.shield = false;
+            this.firstStrike = false;
             
-            // ステータス（ランダム要素を入れて個性を出す）
-            this.maxHp = Math.floor(Math.random() * 60) + 40; // 40 ~ 100
+            this.burn = 0;
+            this.slow = 0;
+            this.poison = 0;
+
+            this.cooldown = 0;
+            this.timer = 0;
+            this.kills = 0;
+            this.usedStarWarp = false;
+            this.usedPriestHeal = false;
+            
+            // --- 属性(形容詞)の能力適用 ---
+            switch(this.adj) {
+                case "雷の": this.baseSpeed *= 1.5; break;
+                case "土の": this.defense += 3; break;
+                case "鉄の": this.reflect = true; break;
+                case "幻の": this.evasion += 0.2; break;
+                case "水の": this.immune = true; break;
+                case "竜の": this.maxHp *= 1.5; this.attack *= 1.5; break;
+                case "霊の": this.ignoreDef = true; break;
+                case "血の": this.maxHp *= 0.6; this.attack *= 2.0; break;
+                case "鋼の": this.maxHp *= 1.5; this.baseSpeed *= 0.7; this.knockbackResist = 0; break;
+                case "影の": this.evasion += 0.3; this.opacity = 0.5; break;
+            }
+
+            // --- 職業(名詞)の能力適用 ---
+            switch(this.noun) {
+                case "戦士": this.maxHp += 20; this.attack += 3; break;
+                case "巨漢": this.r *= 1.8; this.maxHp *= 2; this.knockbackResist = 0.5; break;
+                case "狙撃手": this.baseSpeed *= 0.3; break;
+                case "侍": this.firstStrike = true; break;
+            }
+
             this.hp = this.maxHp;
-            this.attack = Math.floor(Math.random() * 10) + 5; // 5 ~ 15
-            
-            this.cooldown = 0; // 連続でダメージを与え合わないためのクールタイム
+            this.currentSpeed = this.baseSpeed;
+
+            // 位置と速度
+            this.x = startX || Math.random() * (canvas.width - this.r * 2) + this.r;
+            this.y = startY || Math.random() * (canvas.height - this.r * 2) + this.r;
+            const angle = Math.random() * Math.PI * 2;
+            this.vx = Math.cos(angle) * this.currentSpeed;
+            this.vy = Math.sin(angle) * this.currentSpeed;
         }
 
-        update(circles) {
+        update() {
             if (this.hp <= 0) return;
-
+            this.timer++;
             if (this.cooldown > 0) this.cooldown--;
 
+            // 状態異常処理
+            if (this.burn > 0) { this.hp -= 0.1; this.burn--; }
+            if (this.poison > 0) { this.hp -= this.maxHp * 0.002; this.poison--; }
+            if (this.slow > 0) { this.currentSpeed = this.baseSpeed * 0.5; this.slow--; } 
+            else { this.currentSpeed = this.baseSpeed; }
+
+            // --- 属性のアクティブ能力 ---
+            if (this.adj === "光の" && this.timer % 30 === 0) this.hp = Math.min(this.maxHp, this.hp + 1);
+            if (this.adj === "星の" && this.hp < this.maxHp / 2 && !this.usedStarWarp) {
+                this.x = Math.random() * canvas.width; this.y = Math.random() * canvas.height;
+                this.usedStarWarp = true;
+            }
+            if (this.adj === "獣の") this.currentSpeed = this.baseSpeed * (1 + (1 - this.hp / this.maxHp));
+            if (this.adj === "聖なる" && this.timer % 150 === 0) this.shield = true;
+
+            // --- 職業のアクティブ能力 ---
+            if (this.noun === "魔法使い" && this.timer % 60 === 0) this.shoot(5, 5);
+            if (this.noun === "狙撃手" && this.timer % 100 === 0) this.shoot(12, this.attack * 2, true);
+            if (this.noun === "僧侶" && this.hp < this.maxHp * 0.3 && !this.usedPriestHeal) {
+                this.hp += this.maxHp * 0.5; this.usedPriestHeal = true;
+            }
+            if (this.noun === "狩人" && this.timer % 30 === 0) this.targetLowestHp();
+            if (this.noun === "賢者" && this.timer % 120 === 0) this.attack += 1;
+            if (this.noun === "踊り子" && this.timer % 40 === 0) {
+                const angle = Math.random() * Math.PI * 2;
+                this.vx = Math.cos(angle) * this.currentSpeed * 2;
+                this.vy = Math.sin(angle) * this.currentSpeed * 2;
+            }
+            if (this.noun === "錬金術師" && this.timer % 30 === 0) {
+                trails.push({ x: this.x, y: this.y, life: 100, owner: this });
+            }
+            if (this.noun === "吟遊詩人" && this.timer % 100 === 0) {
+                this.hp = Math.min(this.maxHp, this.hp + 5);
+            }
+            if (this.noun === "忍者" && this.timer % 180 === 0) this.teleportBehindNearest();
+
+            // 狂戦士の攻撃力計算
+            let finalAttack = this.attack;
+            if (this.noun === "狂戦士") finalAttack *= (1 + (1 - this.hp / this.maxHp));
+
             // 移動
+            let speedMod = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+            if (speedMod > 0) {
+                this.vx = (this.vx / speedMod) * this.currentSpeed;
+                this.vy = (this.vy / speedMod) * this.currentSpeed;
+            }
             this.x += this.vx;
             this.y += this.vy;
 
-            // 壁での跳ね返り
-            if (this.x - this.r < 0 || this.x + this.r > canvas.width) {
-                this.vx *= -1;
-                this.x = Math.max(this.r, Math.min(this.x, canvas.width - this.r));
-            }
-            if (this.y - this.r < 0 || this.y + this.r > canvas.height) {
-                this.vy *= -1;
-                this.y = Math.max(this.r, Math.min(this.y, canvas.height - this.r));
-            }
+            // 壁バウンド
+            if (this.x - this.r < 0 || this.x + this.r > canvas.width) this.vx *= -1;
+            if (this.y - this.r < 0 || this.y + this.r > canvas.height) this.vy *= -1;
+            this.x = Math.max(this.r, Math.min(this.x, canvas.width - this.r));
+            this.y = Math.max(this.r, Math.min(this.y, canvas.height - this.r));
 
-            // 他の丸との衝突判定と戦闘
+            // 他の丸との衝突
             for (let other of circles) {
                 if (other.id === this.id || other.hp <= 0) continue;
-                
-                const dx = this.x - other.x;
-                const dy = this.y - other.y;
-                const dist = Math.sqrt(dx * dx + dy * dy);
+                let dx = this.x - other.x;
+                let dy = this.y - other.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
 
-                // ぶつかった場合
                 if (dist < this.r + other.r) {
-                    // 互いに跳ね返る（簡単な物理反射）
-                    this.vx *= -1;
-                    this.vy *= -1;
+                    // ノックバック
+                    let push = 2 * this.knockbackResist;
+                    if (this.adj === "風の") push = 10 * this.knockbackResist;
+                    this.vx = (dx / dist) * push;
+                    this.vy = (dy / dist) * push;
 
-                    // 攻撃（クールダウンが0の時のみ）
                     if (this.cooldown === 0) {
-                        other.hp -= this.attack;
-                        this.cooldown = 20; // 20フレームは再攻撃できない
+                        this.dealDamageTo(other, finalAttack);
+                        
+                        // クールタイム（武闘家、騎士などで変動）
+                        this.cooldown = this.noun === "武闘家" ? 5 : 20;
+                        if (other.noun === "騎士") other.cooldown = 40; 
                     }
                 }
             }
         }
 
-        draw(ctx) {
-            if (this.hp <= 0) return;
+        dealDamageTo(target, dmg) {
+            if (Math.random() < target.evasion && !this.ignoreDef) return; // 回避
+            if (target.shield) { target.shield = false; return; } // バリア
 
-            // 丸の描画
+            let actualDamage = dmg;
+            if (this.noun === "暗殺者" && Math.random() < 0.15) actualDamage *= 3; // クリティカル
+            if (this.firstStrike) { actualDamage *= 5; this.firstStrike = false; } // 侍の初撃
+
+            if (!this.ignoreDef) actualDamage = Math.max(1, actualDamage - target.defense);
+
+            target.hp -= actualDamage;
+
+            // 属性付与
+            if (!target.immune) {
+                if (this.adj === "炎の") target.burn = 60;
+                if (this.adj === "氷の") target.slow = 60;
+                if (this.adj === "毒の") target.poison = 60;
+            }
+
+            if (this.adj === "闇の") this.hp = Math.min(this.maxHp, this.hp + actualDamage * 0.5); // 吸血
+            if (this.adj === "魔の") target.attack = Math.max(1, target.attack * 0.95); // 攻撃力低下
+            if (this.noun === "盗賊") { target.attack = Math.max(1, target.attack - 0.5); this.attack += 0.5; }
+
+            if (target.adj === "鉄の") this.hp -= actualDamage * 0.3; // 反射
+
+            if (target.hp <= 0) {
+                this.kills++;
+                if (this.noun === "吸血鬼") this.hp = this.maxHp;
+                handleDeath(target);
+            }
+        }
+
+        shoot(speed, dmg, fast = false) {
+            let target = this.getNearestEnemy();
+            if (!target) return;
+            let dx = target.x - this.x;
+            let dy = target.y - this.y;
+            let dist = Math.sqrt(dx*dx + dy*dy);
+            projectiles.push({
+                x: this.x, y: this.y,
+                vx: (dx/dist) * speed, vy: (dy/dist) * speed,
+                dmg: dmg, owner: this, life: fast ? 100 : 60
+            });
+        }
+
+        targetLowestHp() {
+            let target = null;
+            let minHp = 9999;
+            for (let c of circles) {
+                if (c.id !== this.id && c.hp > 0 && c.hp < minHp) { minHp = c.hp; target = c; }
+            }
+            if (target) {
+                let dx = target.x - this.x; let dy = target.y - this.y;
+                let dist = Math.sqrt(dx*dx + dy*dy);
+                this.vx = (dx/dist) * this.currentSpeed;
+                this.vy = (dy/dist) * this.currentSpeed;
+            }
+        }
+
+        getNearestEnemy() {
+            let target = null, minDist = 9999;
+            for (let c of circles) {
+                if (c.id !== this.id && c.hp > 0) {
+                    let d = Math.hypot(this.x - c.x, this.y - c.y);
+                    if (d < minDist) { minDist = d; target = c; }
+                }
+            }
+            return target;
+        }
+
+        teleportBehindNearest() {
+            let target = this.getNearestEnemy();
+            if (target) {
+                this.x = target.x - target.vx * 10;
+                this.y = target.y - target.vy * 10;
+            }
+        }
+
+        draw() {
+            if (this.hp <= 0) return;
+            ctx.globalAlpha = this.opacity;
+
+            // バリア
+            if (this.shield) {
+                ctx.beginPath();
+                ctx.arc(this.x, this.y, this.r + 4, 0, Math.PI * 2);
+                ctx.strokeStyle = "gold"; ctx.lineWidth = 2; ctx.stroke();
+            }
+
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-            ctx.fillStyle = this.color;
-            ctx.fill();
-            ctx.strokeStyle = "#fff";
-            ctx.lineWidth = 1;
-            ctx.stroke();
+            ctx.fillStyle = this.color; ctx.fill();
+            ctx.strokeStyle = "#fff"; ctx.lineWidth = 1; ctx.stroke();
+            
+            ctx.globalAlpha = 1.0;
 
-            // 役職名の描画
+            // 役職名
             ctx.fillStyle = "#fff";
-            ctx.font = "11px sans-serif";
+            ctx.font = "10px sans-serif";
             ctx.textAlign = "center";
-            ctx.fillText(this.role, this.x, this.y - 18);
+            if(this.isClone) {
+                ctx.fillText("分身", this.x, this.y - this.r - 8);
+            } else {
+                ctx.fillText(this.roleName, this.x, this.y - this.r - 8);
+            }
 
-            // HPバーの描画
+            // HPバー
             const barWidth = 24;
             ctx.fillStyle = "red";
-            ctx.fillRect(this.x - barWidth / 2, this.y - 30, barWidth, 4);
+            ctx.fillRect(this.x - barWidth / 2, this.y - this.r - 4, barWidth, 3);
             ctx.fillStyle = "lime";
-            ctx.fillRect(this.x - barWidth / 2, this.y - 30, barWidth * (this.hp / this.maxHp), 4);
+            ctx.fillRect(this.x - barWidth / 2, this.y - this.r - 4, barWidth * (this.hp / this.maxHp), 3);
         }
     }
 
-    let circles = [];
+    // 死亡時の処理（召喚士、死霊術師などの発動）
+    function handleDeath(deadCircle) {
+        if (deadCircle.noun === "召喚士" && !deadCircle.isClone) {
+            let c1 = new Circle(deadCircle.id, {name: "分身", adj: "無", noun: "無"}, true, deadCircle.x - 15, deadCircle.y);
+            let c2 = new Circle(deadCircle.id, {name: "分身", adj: "無", noun: "無"}, true, deadCircle.x + 15, deadCircle.y);
+            c1.maxHp /= 2; c1.hp = c1.maxHp; c1.r = 8;
+            c2.maxHp /= 2; c2.hp = c2.maxHp; c2.r = 8;
+            circles.push(c1, c2);
+        }
+        for (let c of circles) {
+            if (c.hp > 0 && c.noun === "死霊術師") {
+                c.maxHp += 10; c.hp += 10; c.attack += 2;
+            }
+        }
+    }
+
+    // 100人の初期化
     for (let i = 0; i < 100; i++) {
         circles.push(new Circle(i, roles[i]));
     }
 
-    let animationId;
-
     function loop() {
-        // 背景のクリア
         ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-        let aliveCount = 0;
-        let winner = null;
+        // 錬金術師の毒沼
+        for (let i = trails.length - 1; i >= 0; i--) {
+            let t = trails[i];
+            t.life--;
+            ctx.fillStyle = "rgba(128, 0, 128, " + (t.life / 100 * 0.5) + ")";
+            ctx.beginPath(); ctx.arc(t.x, t.y, 15, 0, Math.PI*2); ctx.fill();
+            
+            for (let c of circles) {
+                if (c.hp > 0 && c.id !== t.owner.id && Math.hypot(c.x - t.x, c.y - t.y) < 15 + c.r) {
+                    if(!c.immune) c.hp -= 0.2;
+                }
+            }
+            if (t.life <= 0) trails.splice(i, 1);
+        }
 
-        // 全体の更新と描画
+        // 弾（魔法・狙撃）
+        for (let i = projectiles.length - 1; i >= 0; i--) {
+            let p = projectiles[i];
+            p.x += p.vx; p.y += p.vy; p.life--;
+            
+            ctx.fillStyle = "cyan";
+            ctx.beginPath(); ctx.arc(p.x, p.y, 4, 0, Math.PI*2); ctx.fill();
+
+            let hit = false;
+            for (let c of circles) {
+                if (c.hp > 0 && c.id !== p.owner.id && Math.hypot(c.x - p.x, c.y - p.y) < 4 + c.r) {
+                    p.owner.dealDamageTo(c, p.dmg);
+                    hit = true; break;
+                }
+            }
+            if (hit || p.life <= 0) projectiles.splice(i, 1);
+        }
+
+        let aliveCount = 0;
+        let mainWinner = null;
+
         for (let c of circles) {
-            c.update(circles);
-            c.draw(ctx);
+            c.update();
+            c.draw();
             if (c.hp > 0) {
                 aliveCount++;
-                winner = c;
+                if (!c.isClone) mainWinner = c;
             }
         }
 
-        // 生存者数の表示
         ctx.fillStyle = "#fff";
         ctx.font = "20px sans-serif";
         ctx.textAlign = "left";
-        ctx.fillText("生存者: " + aliveCount + " / 100", 15, 30);
+        ctx.fillText("生存者: " + aliveCount, 15, 30);
 
-        // 終了判定
         if (aliveCount <= 1) {
             ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
-            
             ctx.textAlign = "center";
             ctx.font = "40px sans-serif";
             ctx.fillStyle = "#FFD700";
             
-            if (aliveCount === 1 && winner) {
-                ctx.fillText("👑 勝者: " + winner.role + " 👑", canvas.width / 2, canvas.height / 2);
+            if (aliveCount === 1 && mainWinner) {
+                ctx.fillText("👑 勝者: " + mainWinner.roleName + " 👑", canvas.width / 2, canvas.height / 2 - 20);
+                ctx.font = "20px sans-serif";
+                ctx.fillText(`撃破数: ${mainWinner.kills} / 残りHP: ${Math.floor(mainWinner.hp)}`, canvas.width / 2, canvas.height / 2 + 30);
             } else {
                 ctx.fillText("引き分け (相打ち)", canvas.width / 2, canvas.height / 2);
             }
-            return; // ループ終了
+            return;
         }
 
-        animationId = requestAnimationFrame(loop);
+        requestAnimationFrame(loop);
     }
 
-    // ゲーム開始
     loop();
 </script>
 </body>
