@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>フルスクリーン神域版！役職書き換えバトルロイヤル</title>
+<title>フルスクリーン神域版！無限増援バトルロイヤル</title>
 <style>
     html, body {
         margin: 0; padding: 0;
@@ -30,7 +30,6 @@
     canvas.width = 3000;
     canvas.height = 3000 * aspectRatio;
 
-    // "変異の" "混沌の" などを追加
     const adjectives = [
         "炎の", "氷の", "雷の", "光の", "闇の", "風の", "土の", "毒の", "鉄の", "幻の", 
         "水の", "星の", "竜の", "霊の", "血の", "鋼の", "獣の", "聖なる", "魔の", "影の",
@@ -39,10 +38,9 @@
         "空間の", "夢の", "悪夢の", "奇跡の", "絶望の", "希望の", "呪いの", "祝福の", "怒りの", "悲しみの",
         "喜びの", "愛の", "憎しみの", "虚無の", "混沌の", "秩序の", "創造の", "破壊の", "生命の", "死の",
         "狂気の", "運命の", "業火の", "神の", "悪魔の", "精霊の", "妖精の", "鬼の", "修羅の", "仏の",
-        "変異の", "未知の" // 新規追加
+        "変異の", "未知の"
     ];
 
-    // "トリックスター" などを追加
     const nouns = [
         "戦士", "魔法使い", "僧侶", "盗賊", "狩人", "騎士", "暗殺者", "召喚士", "賢者", "武闘家", 
         "狂戦士", "狙撃手", "踊り子", "巨漢", "吸血鬼", "死霊術師", "錬金術師", "吟遊詩人", "侍", "忍者",
@@ -51,7 +49,7 @@
         "守護者", "破壊者", "創造主", "冒険者", "旅人", "亡霊", "ゾンビ", "ゴーレム", "サイボーグ", "エイリアン",
         "スライム", "ドラゴン", "デーモン", "エンジェル", "退魔師", "魔物使い", "調教師", "ギャンブラー", "道化師", "料理人",
         "鍛冶屋", "木こり", "釣り人", "農民", "学者", "発明家", "機工士", "メイド", "執事", "怪盗",
-        "トリックスター", "変身者" // 新規追加
+        "トリックスター", "変身者"
     ];
     
     let roles = [];
@@ -62,6 +60,10 @@
     let projectiles = [];
     let trails = [];
     let particles = [];
+
+    // 増援の警告用変数
+    let alertMessage = "";
+    let alertTimer = 0;
 
     let safeZone = {
         x: canvas.width / 2, y: canvas.height / 2,
@@ -101,10 +103,9 @@
             this.burn = 0; this.slow = 0; this.poison = 0;
             this.cooldown = 0; this.timer = 0; this.kills = 0;
             
-            this.x = startX || Math.random() * (canvas.width - 60) + 30;
-            this.y = startY || Math.random() * (canvas.height - 60) + 30;
+            this.x = startX !== undefined ? startX : Math.random() * (canvas.width - 60) + 30;
+            this.y = startY !== undefined ? startY : Math.random() * (canvas.height - 60) + 30;
 
-            // 能力の付与（初期化）
             this.applyRole(roleObj.adj, roleObj.noun, true);
 
             const angle = Math.random() * Math.PI * 2;
@@ -112,24 +113,20 @@
             this.vy = Math.sin(angle) * this.currentSpeed;
         }
 
-        // ★ 新機能：能力をリセットして新しくつけ直すメソッド
         applyRole(adj, noun, isInit = false) {
             this.adj = adj;
             this.noun = noun;
             this.roleName = adj + noun;
             
-            // ベースステータスのリセット
             this.r = 22;
             this.baseSpeed = Math.random() * 2.5 + 2.0;
             let newMaxHp = Math.floor(Math.random() * 150) + 100; 
             this.attack = Math.floor(Math.random() * 15) + 10;
 
-            // 特殊能力フラグのリセット
             this.evasion = 0; this.defense = 0; this.knockbackResist = 1.0;
             this.ignoreDef = false; this.immune = false; this.shield = false; this.firstStrike = false;
             this.reflect = false;
 
-            // 属性の能力適用
             switch(this.adj) {
                 case "雷の": case "轟雷の": case "閃光の": this.baseSpeed *= 2.5; break;
                 case "土の": case "鋼の": case "結晶の": this.defense += 30; this.knockbackResist = 0.1; break;
@@ -142,7 +139,6 @@
                 case "血の": case "狂気の": case "絶望の": newMaxHp *= 0.3; this.attack *= 6.0; break;
             }
 
-            // 職業の能力適用
             switch(this.noun) {
                 case "戦士": case "剣士": case "斧使い": newMaxHp += 150; this.attack += 20; break;
                 case "巨漢": case "力士": case "ゴーレム": this.r *= 3.5; newMaxHp *= 6.0; this.knockbackResist = 0; break;
@@ -155,7 +151,6 @@
                 case "スライム": case "ゾンビ": this.immune = true; newMaxHp *= 0.8; break;
             }
 
-            // 初期化時以外（＝戦闘中の書き換え時）は、HPの割合を維持してエフェクトを出す
             if (isInit) {
                 this.maxHp = newMaxHp;
                 this.hp = this.maxHp;
@@ -163,7 +158,7 @@
                 let hpRatio = this.hp / this.maxHp;
                 this.maxHp = newMaxHp;
                 this.hp = this.maxHp * hpRatio;
-                createExplosion(this.x, this.y, "white", 40, 6, 8); // 書き換えエフェクト
+                createExplosion(this.x, this.y, "white", 40, 6, 8); 
             }
             this.currentSpeed = this.baseSpeed;
         }
@@ -173,7 +168,6 @@
             this.timer++;
             if (this.cooldown > 0) this.cooldown--;
 
-            // ★ 新機能：【トリックスター】一定時間で「自分以外の全員の能力をリセットし書き換える」
             if (this.noun === "トリックスター" && this.timer % 400 === 0) {
                 for (let c of circles) {
                     if (c.hp > 0 && c.id !== this.id && !c.isClone) {
@@ -184,7 +178,6 @@
                 }
             }
 
-            // ★ 新機能：【混沌の】【変身者】一定時間で「自分自身の能力をリセットし書き換える」
             if (["混沌の", "未知の"].includes(this.adj) || ["変身者"].includes(this.noun)) {
                 if (this.timer % 250 === 0) {
                     let randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
@@ -250,7 +243,6 @@
             if (Math.random() < target.evasion && !this.ignoreDef) { createExplosion(target.x, target.y, "gray", 8, 3, 3); return; }
             if (target.shield) { target.shield = false; createExplosion(target.x, target.y, "gold", 30, 6, 8); return; }
 
-            // ★ 新機能：【変異の】攻撃を当てた相手の能力を強制的に書き換える
             if (this.adj === "変異の" && Math.random() < 0.25 && !target.isClone) {
                 let randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
                 let randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
@@ -348,6 +340,39 @@
     }
 
     function handleDeath(deadCircle) {
+        // 分身が倒されたら、エリア外から100人が乱入する
+        if (deadCircle.isClone) {
+            alertMessage = "⚠️ 分身討伐！ エリア外から100人が乱入！ ⚠️";
+            alertTimer = 180; // 3秒間メッセージ表示
+            
+            for(let i=0; i<100; i++) {
+                let randomRole = {
+                    adj: adjectives[Math.floor(Math.random() * adjectives.length)],
+                    noun: nouns[Math.floor(Math.random() * nouns.length)]
+                };
+                randomRole.name = randomRole.adj + randomRole.noun;
+
+                // 四方の画面端のどこかから出現
+                let edge = Math.floor(Math.random() * 4);
+                let startX, startY;
+                if (edge === 0) { startX = Math.random() * canvas.width; startY = 30; } 
+                else if (edge === 1) { startX = canvas.width - 30; startY = Math.random() * canvas.height; } 
+                else if (edge === 2) { startX = Math.random() * canvas.width; startY = canvas.height - 30; } 
+                else { startX = 30; startY = Math.random() * canvas.height; } 
+
+                let reinforce = new Circle("reinforce_" + Math.random(), randomRole, false, startX, startY);
+                
+                // エリア外で死なないように、安全エリアの中心に向けて全速力で突撃させる
+                let rushAngle = Math.atan2(safeZone.y - startY, safeZone.x - startX);
+                reinforce.vx = Math.cos(rushAngle) * reinforce.currentSpeed;
+                reinforce.vy = Math.sin(rushAngle) * reinforce.currentSpeed;
+
+                circles.push(reinforce);
+            }
+            createExplosion(deadCircle.x, deadCircle.y, "white", 100, 5, 15); // 特大爆発
+        }
+        
+        // 召喚士が死んだら分身をばらまく
         if (["召喚士", "魔物使い"].includes(deadCircle.noun) && !deadCircle.isClone) {
             for(let i=0; i<6; i++) {
                 let clone = new Circle(deadCircle.id, {name: "分身", adj: "無", noun: "無"}, true, deadCircle.x + (Math.random()*100-50), deadCircle.y + (Math.random()*100-50));
@@ -356,6 +381,8 @@
                 createExplosion(clone.x, clone.y, "purple", 20, 6, 8);
             }
         }
+        
+        // 死霊術師のステータスアップ
         for (let c of circles) {
             if (c.hp > 0 && ["死霊術師", "ネクロマンサー", "悪魔の"].includes(c.noun || c.adj)) {
                 c.maxHp += 80; c.hp += 80; c.attack += 15; c.r += 2;
@@ -364,6 +391,7 @@
         }
     }
 
+    // 初期の100人を生成
     for (let i = 0; i < 100; i++) circles.push(new Circle(i, roles[i]));
 
     function loop() {
@@ -403,9 +431,17 @@
         }
 
         let aliveCount = 0; let mainWinner = null;
-        for (let c of circles) {
+        
+        // 【最適化】死んだキャラクターを配列から完全に消去し、動作を軽く保つ
+        for (let i = circles.length - 1; i >= 0; i--) {
+            let c = circles[i];
+            if (c.hp <= 0) {
+                circles.splice(i, 1);
+                continue;
+            }
             c.update(); c.draw();
-            if (c.hp > 0) { aliveCount++; if (!c.isClone) mainWinner = c; }
+            aliveCount++; 
+            if (!c.isClone) mainWinner = c;
         }
 
         for (let i = particles.length - 1; i >= 0; i--) {
@@ -424,6 +460,16 @@
 
         ctx.fillStyle = "#fff"; ctx.font = "bold 60px sans-serif"; ctx.textAlign = "left";
         ctx.fillText("生存者: " + aliveCount, 50, 80);
+
+        // 増援の警告テロップの描画
+        if (alertTimer > 0) {
+            alertTimer--;
+            ctx.fillStyle = `rgba(255, 50, 50, ${Math.min(1, alertTimer / 60)})`;
+            ctx.font = "bold 80px sans-serif"; ctx.textAlign = "center";
+            ctx.shadowBlur = 30; ctx.shadowColor = "red";
+            ctx.fillText(alertMessage, canvas.width / 2, canvas.height / 4);
+            ctx.shadowBlur = 0;
+        }
 
         if (aliveCount <= 1) {
             ctx.fillStyle = "rgba(0, 0, 0, 0.85)"; ctx.fillRect(0, 0, canvas.width, canvas.height);
