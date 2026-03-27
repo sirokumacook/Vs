@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>フルスクリーン神域版！無限増援バトルロイヤル</title>
+<title>フルスクリーン神域版！増援制限バトルロイヤル</title>
 <style>
     html, body {
         margin: 0; padding: 0;
@@ -61,9 +61,10 @@
     let trails = [];
     let particles = [];
 
-    // 増援の警告用変数
+    // 増援の管理用変数
     let alertMessage = "";
     let alertTimer = 0;
+    let reinforcementCount = 0; // 増援が発生した回数
 
     let safeZone = {
         x: canvas.width / 2, y: canvas.height / 2,
@@ -340,10 +341,14 @@
     }
 
     function handleDeath(deadCircle) {
-        // 分身が倒されたら、エリア外から100人が乱入する
-        if (deadCircle.isClone) {
-            alertMessage = "⚠️ 分身討伐！ エリア外から100人が乱入！ ⚠️";
-            alertTimer = 180; // 3秒間メッセージ表示
+        // 現在生き残っている人数を計算
+        let currentAlive = circles.filter(c => c.hp > 0).length;
+
+        // 分身が倒された時の条件：200人以下 ＆ 増援回数3回未満
+        if (deadCircle.isClone && currentAlive <= 200 && reinforcementCount < 3) {
+            reinforcementCount++;
+            alertMessage = `⚠️ 分身討伐！ エリア外から100人が乱入！ (増援 ${reinforcementCount}/3) ⚠️`;
+            alertTimer = 180; 
             
             for(let i=0; i<100; i++) {
                 let randomRole = {
@@ -352,7 +357,6 @@
                 };
                 randomRole.name = randomRole.adj + randomRole.noun;
 
-                // 四方の画面端のどこかから出現
                 let edge = Math.floor(Math.random() * 4);
                 let startX, startY;
                 if (edge === 0) { startX = Math.random() * canvas.width; startY = 30; } 
@@ -362,17 +366,15 @@
 
                 let reinforce = new Circle("reinforce_" + Math.random(), randomRole, false, startX, startY);
                 
-                // エリア外で死なないように、安全エリアの中心に向けて全速力で突撃させる
                 let rushAngle = Math.atan2(safeZone.y - startY, safeZone.x - startX);
                 reinforce.vx = Math.cos(rushAngle) * reinforce.currentSpeed;
                 reinforce.vy = Math.sin(rushAngle) * reinforce.currentSpeed;
 
                 circles.push(reinforce);
             }
-            createExplosion(deadCircle.x, deadCircle.y, "white", 100, 5, 15); // 特大爆発
+            createExplosion(deadCircle.x, deadCircle.y, "white", 100, 5, 15); 
         }
         
-        // 召喚士が死んだら分身をばらまく
         if (["召喚士", "魔物使い"].includes(deadCircle.noun) && !deadCircle.isClone) {
             for(let i=0; i<6; i++) {
                 let clone = new Circle(deadCircle.id, {name: "分身", adj: "無", noun: "無"}, true, deadCircle.x + (Math.random()*100-50), deadCircle.y + (Math.random()*100-50));
@@ -382,7 +384,6 @@
             }
         }
         
-        // 死霊術師のステータスアップ
         for (let c of circles) {
             if (c.hp > 0 && ["死霊術師", "ネクロマンサー", "悪魔の"].includes(c.noun || c.adj)) {
                 c.maxHp += 80; c.hp += 80; c.attack += 15; c.r += 2;
@@ -391,7 +392,6 @@
         }
     }
 
-    // 初期の100人を生成
     for (let i = 0; i < 100; i++) circles.push(new Circle(i, roles[i]));
 
     function loop() {
@@ -432,7 +432,6 @@
 
         let aliveCount = 0; let mainWinner = null;
         
-        // 【最適化】死んだキャラクターを配列から完全に消去し、動作を軽く保つ
         for (let i = circles.length - 1; i >= 0; i--) {
             let c = circles[i];
             if (c.hp <= 0) {
@@ -461,7 +460,6 @@
         ctx.fillStyle = "#fff"; ctx.font = "bold 60px sans-serif"; ctx.textAlign = "left";
         ctx.fillText("生存者: " + aliveCount, 50, 80);
 
-        // 増援の警告テロップの描画
         if (alertTimer > 0) {
             alertTimer--;
             ctx.fillStyle = `rgba(255, 50, 50, ${Math.min(1, alertTimer / 60)})`;
