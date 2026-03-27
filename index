@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>100の役職バトルロイヤル</title>
+<style>
+    body {
+        margin: 0;
+        background-color: #1a1a1a;
+        color: #eeeeee;
+        font-family: sans-serif;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        min-height: 100vh;
+    }
+    h1 {
+        margin-top: 10px;
+        margin-bottom: 10px;
+        font-size: 24px;
+    }
+    canvas {
+        background-color: #2a2a2a;
+        border: 2px solid #555;
+        border-radius: 8px;
+        box-shadow: 0 0 15px rgba(0, 0, 0, 0.5);
+    }
+    #controls {
+        margin-top: 15px;
+    }
+    button {
+        padding: 10px 20px;
+        font-size: 16px;
+        cursor: pointer;
+        background-color: #4CAF50;
+        color: white;
+        border: none;
+        border-radius: 5px;
+    }
+    button:hover {
+        background-color: #45a049;
+    }
+</style>
+</head>
+<body>
+
+<h1>100の役職バトルロイヤル</h1>
+<canvas id="gameCanvas" width="1000" height="700"></canvas>
+<div id="controls">
+    <button onclick="location.reload()">もう一度戦わせる</button>
+</div>
+
+<script>
+    const canvas = document.getElementById("gameCanvas");
+    const ctx = canvas.getContext("2d");
+
+    // 10種類の属性と10種類の職業を組み合わせて、100種類のユニークな役職を自動生成します
+    const adjectives = ["炎の", "氷の", "雷の", "光の", "闇の", "風の", "土の", "毒の", "鉄の", "幻の"];
+    const nouns = ["戦士", "魔法使い", "僧侶", "盗賊", "狩人", "騎士", "暗殺者", "召喚士", "賢者", "武闘家"];
+    let roles = [];
+    
+    for (let a of adjectives) {
+        for (let n of nouns) {
+            roles.push(a + n);
+        }
+    }
+
+    // 役職をシャッフル
+    for (let i = roles.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [roles[i], roles[j]] = [roles[j], roles[i]];
+    }
+
+    class Circle {
+        constructor(id, role) {
+            this.id = id;
+            this.role = role;
+            this.r = 12; // 丸の大きさ
+            
+            // ランダムな初期位置（画面内に収まるように）
+            this.x = Math.random() * (canvas.width - this.r * 2) + this.r;
+            this.y = Math.random() * (canvas.height - this.r * 2) + this.r;
+            
+            // ランダムな速度と移動方向
+            this.speed = Math.random() * 2 + 1; // 1.0 ~ 3.0
+            const angle = Math.random() * Math.PI * 2;
+            this.vx = Math.cos(angle) * this.speed;
+            this.vy = Math.sin(angle) * this.speed;
+            
+            // ランダムな色
+            this.color = `hsl(${Math.random() * 360}, 80%, 60%)`;
+            
+            // ステータス（ランダム要素を入れて個性を出す）
+            this.maxHp = Math.floor(Math.random() * 60) + 40; // 40 ~ 100
+            this.hp = this.maxHp;
+            this.attack = Math.floor(Math.random() * 10) + 5; // 5 ~ 15
+            
+            this.cooldown = 0; // 連続でダメージを与え合わないためのクールタイム
+        }
+
+        update(circles) {
+            if (this.hp <= 0) return;
+
+            if (this.cooldown > 0) this.cooldown--;
+
+            // 移動
+            this.x += this.vx;
+            this.y += this.vy;
+
+            // 壁での跳ね返り
+            if (this.x - this.r < 0 || this.x + this.r > canvas.width) {
+                this.vx *= -1;
+                this.x = Math.max(this.r, Math.min(this.x, canvas.width - this.r));
+            }
+            if (this.y - this.r < 0 || this.y + this.r > canvas.height) {
+                this.vy *= -1;
+                this.y = Math.max(this.r, Math.min(this.y, canvas.height - this.r));
+            }
+
+            // 他の丸との衝突判定と戦闘
+            for (let other of circles) {
+                if (other.id === this.id || other.hp <= 0) continue;
+                
+                const dx = this.x - other.x;
+                const dy = this.y - other.y;
+                const dist = Math.sqrt(dx * dx + dy * dy);
+
+                // ぶつかった場合
+                if (dist < this.r + other.r) {
+                    // 互いに跳ね返る（簡単な物理反射）
+                    this.vx *= -1;
+                    this.vy *= -1;
+
+                    // 攻撃（クールダウンが0の時のみ）
+                    if (this.cooldown === 0) {
+                        other.hp -= this.attack;
+                        this.cooldown = 20; // 20フレームは再攻撃できない
+                    }
+                }
+            }
+        }
+
+        draw(ctx) {
+            if (this.hp <= 0) return;
+
+            // 丸の描画
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+            ctx.fillStyle = this.color;
+            ctx.fill();
+            ctx.strokeStyle = "#fff";
+            ctx.lineWidth = 1;
+            ctx.stroke();
+
+            // 役職名の描画
+            ctx.fillStyle = "#fff";
+            ctx.font = "11px sans-serif";
+            ctx.textAlign = "center";
+            ctx.fillText(this.role, this.x, this.y - 18);
+
+            // HPバーの描画
+            const barWidth = 24;
+            ctx.fillStyle = "red";
+            ctx.fillRect(this.x - barWidth / 2, this.y - 30, barWidth, 4);
+            ctx.fillStyle = "lime";
+            ctx.fillRect(this.x - barWidth / 2, this.y - 30, barWidth * (this.hp / this.maxHp), 4);
+        }
+    }
+
+    let circles = [];
+    for (let i = 0; i < 100; i++) {
+        circles.push(new Circle(i, roles[i]));
+    }
+
+    let animationId;
+
+    function loop() {
+        // 背景のクリア
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        let aliveCount = 0;
+        let winner = null;
+
+        // 全体の更新と描画
+        for (let c of circles) {
+            c.update(circles);
+            c.draw(ctx);
+            if (c.hp > 0) {
+                aliveCount++;
+                winner = c;
+            }
+        }
+
+        // 生存者数の表示
+        ctx.fillStyle = "#fff";
+        ctx.font = "20px sans-serif";
+        ctx.textAlign = "left";
+        ctx.fillText("生存者: " + aliveCount + " / 100", 15, 30);
+
+        // 終了判定
+        if (aliveCount <= 1) {
+            ctx.fillStyle = "rgba(0, 0, 0, 0.7)";
+            ctx.fillRect(0, 0, canvas.width, canvas.height);
+            
+            ctx.textAlign = "center";
+            ctx.font = "40px sans-serif";
+            ctx.fillStyle = "#FFD700";
+            
+            if (aliveCount === 1 && winner) {
+                ctx.fillText("👑 勝者: " + winner.role + " 👑", canvas.width / 2, canvas.height / 2);
+            } else {
+                ctx.fillText("引き分け (相打ち)", canvas.width / 2, canvas.height / 2);
+            }
+            return; // ループ終了
+        }
+
+        animationId = requestAnimationFrame(loop);
+    }
+
+    // ゲーム開始
+    loop();
+</script>
+</body>
+</html>
