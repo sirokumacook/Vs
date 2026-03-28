@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>フルスクリーン神域版！完全決着バトルロイヤル</title>
+<title>フルスクリーン神域版！魔王の報復バトルロイヤル</title>
 <style>
     html, body {
         margin: 0; padding: 0;
@@ -49,7 +49,7 @@
         "守護者", "破壊者", "創造主", "冒険者", "旅人", "亡霊", "ゾンビ", "ゴーレム", "サイボーグ", "エイリアン",
         "スライム", "ドラゴン", "デーモン", "エンジェル", "退魔師", "魔物使い", "調教師", "ギャンブラー", "道化師", "料理人",
         "鍛冶屋", "木こり", "釣り人", "農民", "学者", "発明家", "機工士", "メイド", "執事", "怪盗",
-        "トリックスター", "変身者"
+        "トリックスター", "変身者", "幻術師", "奇術師", "影武者" // 分身系を少し追加
     ];
     
     let roles = [];
@@ -105,6 +105,12 @@
             this.burn = 0; this.slow = 0; this.poison = 0;
             this.cooldown = 0; this.timer = 0; this.kills = 0;
             
+            // 魔王・部下専用のフラグ
+            this.hasSummonedMinions = false; 
+            this.isMinion = false;
+            this.minionTarget = null;
+            this.returningHome = false;
+
             this.x = startX !== undefined ? startX : Math.random() * (canvas.width - 60) + 30;
             this.y = startY !== undefined ? startY : Math.random() * (canvas.height - 60) + 30;
 
@@ -167,37 +173,48 @@
 
         update() {
             if (this.hp <= 0) return;
-
-            // 【バグ修正】座標が計算不能（NaN）になったキャラクターは即死させて除外する
-            if (isNaN(this.x) || isNaN(this.y)) {
-                this.hp = 0;
-                return;
-            }
+            if (isNaN(this.x) || isNaN(this.y)) { this.hp = 0; return; }
 
             this.timer++;
             if (this.cooldown > 0) this.cooldown--;
 
-            if (this.noun === "トリックスター" && this.timer % 400 === 0) {
-                for (let c of circles) {
-                    if (c.hp > 0 && c.id !== this.id && !c.isClone) {
-                        let randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
-                        let randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
-                        c.applyRole(randomAdj, randomNoun);
+            // 部下でない場合のみ発動する能力
+            if (!this.isMinion) {
+                if (this.noun === "トリックスター" && this.timer % 400 === 0) {
+                    for (let c of circles) {
+                        // 部下は役職変更の対象外
+                        if (c.hp > 0 && c.id !== this.id && !c.isClone && !c.isMinion) {
+                            let randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
+                            let randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+                            c.applyRole(randomAdj, randomNoun);
+                        }
                     }
                 }
-            }
 
-            if (["混沌の", "未知の"].includes(this.adj) || ["変身者"].includes(this.noun)) {
-                if (this.timer % 250 === 0) {
-                    let randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
-                    let randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
-                    this.applyRole(randomAdj, randomNoun);
+                if (["混沌の", "未知の"].includes(this.adj) || ["変身者"].includes(this.noun)) {
+                    if (this.timer % 250 === 0) {
+                        let randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
+                        let randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
+                        this.applyRole(randomAdj, randomNoun);
+                    }
+                }
+
+                if (["魔法使い", "魔女", "妖術師"].includes(this.noun) && this.timer % 60 === 0) this.shoot8Way(12, this.attack);
+                if (["狙撃手", "スナイパー", "ガンナー"].includes(this.noun) && this.timer % 90 === 0) this.shoot(60, this.attack * 100, true); 
+                if (["錬金術師", "毒の", "猛毒の"].includes(this.adj) && this.timer % 15 === 0) trails.push({ x: this.x, y: this.y, life: 250, owner: this, r: 60 });
+                if (["僧侶", "神官", "司教"].includes(this.noun) && this.hp < this.maxHp * 0.5 && !this.usedPriestHeal) {
+                    this.hp += this.maxHp * 2.0; this.usedPriestHeal = true;
+                    createExplosion(this.x, this.y, "lime", 60, 8, 6);
+                }
+                if (["忍者", "怪盗"].includes(this.noun) && this.timer % 80 === 0) {
+                    createExplosion(this.x, this.y, "white", 30, 6, 5);
+                    this.teleportBehindNearest();
                 }
             }
 
+            // ストームダメージ（部下はストームを無効化）
             let distToSafe = Math.hypot(this.x - safeZone.x, this.y - safeZone.y);
-            if (distToSafe > safeZone.r) {
-                // 【バグ修正】エリアが極小（10以下）になったらストームダメージを5倍にして強制決着！
+            if (distToSafe > safeZone.r && !this.isMinion) {
                 let stormDamage = (safeZone.r <= 10) ? 5.0 : 1.0;
                 this.hp -= stormDamage; 
                 if(this.timer % 5 === 0) createExplosion(this.x, this.y, "red", 3, 5, 3);
@@ -207,52 +224,79 @@
             if (this.poison > 0) { this.hp -= this.maxHp * 0.005; this.poison--; }
             if (this.slow > 0) { this.currentSpeed = this.baseSpeed * 0.2; this.slow--; } else { this.currentSpeed = this.baseSpeed; }
 
-            if (["魔法使い", "魔女", "妖術師"].includes(this.noun) && this.timer % 60 === 0) this.shoot8Way(12, this.attack);
-            if (["狙撃手", "スナイパー", "ガンナー"].includes(this.noun) && this.timer % 90 === 0) this.shoot(60, this.attack * 100, true); 
-            if (["錬金術師", "毒の", "猛毒の"].includes(this.adj) && this.timer % 15 === 0) trails.push({ x: this.x, y: this.y, life: 250, owner: this, r: 60 });
-            if (["僧侶", "神官", "司教"].includes(this.noun) && this.hp < this.maxHp * 0.5 && !this.usedPriestHeal) {
-                this.hp += this.maxHp * 2.0; this.usedPriestHeal = true;
-                createExplosion(this.x, this.y, "lime", 60, 8, 6);
-            }
-            if (["忍者", "怪盗"].includes(this.noun) && this.timer % 80 === 0) {
-                createExplosion(this.x, this.y, "white", 30, 6, 5);
-                this.teleportBehindNearest();
+            // ====== 移動ロジック ======
+            if (this.isMinion) {
+                // 部下がターゲットを倒した、またはターゲットが死んだら帰宅モード
+                if (this.kills > 0 || !this.minionTarget || this.minionTarget.hp <= 0) {
+                    this.returningHome = true;
+                }
+
+                if (this.returningHome) {
+                    // エリア外（一番近い角）に向かって帰る
+                    let targetX = this.x < canvas.width / 2 ? -200 : canvas.width + 200;
+                    let targetY = this.y < canvas.height / 2 ? -200 : canvas.height + 200;
+                    let dx = targetX - this.x; let dy = targetY - this.y;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist > 0) {
+                        this.vx = (dx / dist) * this.baseSpeed * 2.0;
+                        this.vy = (dy / dist) * this.baseSpeed * 2.0;
+                    }
+                    
+                    // 画面外に完全に消えたら消滅（帰宅完了）
+                    if (this.x < -100 || this.x > canvas.width + 100 || this.y < -100 || this.y > canvas.height + 100) {
+                        this.hp = 0; 
+                        return;
+                    }
+                } else {
+                    // ターゲットに一直線に向かう
+                    let dx = this.minionTarget.x - this.x; let dy = this.minionTarget.y - this.y;
+                    let dist = Math.hypot(dx, dy);
+                    if (dist > 0) {
+                        this.vx = (dx / dist) * this.baseSpeed * 2.5; // 部下は少し足が速い
+                        this.vy = (dy / dist) * this.baseSpeed * 2.5;
+                    }
+                }
+            } else {
+                let speedMod = Math.hypot(this.vx, this.vy);
+                if (speedMod > 0 && !isNaN(speedMod)) {
+                    this.vx = (this.vx / speedMod) * this.currentSpeed;
+                    this.vy = (this.vy / speedMod) * this.currentSpeed;
+                } else {
+                    this.vx = this.currentSpeed; this.vy = 0;
+                }
             }
 
-            let speedMod = Math.hypot(this.vx, this.vy);
-            if (speedMod > 0 && !isNaN(speedMod)) { // 【バグ修正】speedModのNaN対策
-                this.vx = (this.vx / speedMod) * this.currentSpeed;
-                this.vy = (this.vy / speedMod) * this.currentSpeed;
-            } else {
-                this.vx = this.currentSpeed; this.vy = 0;
-            }
             this.x += this.vx; this.y += this.vy;
 
-            if (this.x - this.r < 0 || this.x + this.r > canvas.width) this.vx *= -1;
-            if (this.y - this.r < 0 || this.y + this.r > canvas.height) this.vy *= -1;
-            this.x = Math.max(this.r, Math.min(this.x, canvas.width - this.r));
-            this.y = Math.max(this.r, Math.min(this.y, canvas.height - this.r));
+            // 壁バウンド（部下は壁をすり抜けて外からやってくる/帰るのでバウンドさせない）
+            if (!this.isMinion) {
+                if (this.x - this.r < 0 || this.x + this.r > canvas.width) this.vx *= -1;
+                if (this.y - this.r < 0 || this.y + this.r > canvas.height) this.vy *= -1;
+                this.x = Math.max(this.r, Math.min(this.x, canvas.width - this.r));
+                this.y = Math.max(this.r, Math.min(this.y, canvas.height - this.r));
+            }
 
+            // ====== 衝突判定 ======
             for (let other of circles) {
                 if (other.id === this.id || other.hp <= 0) continue;
                 
+                // 部下はターゲット以外を「完全にすり抜ける」（他のキャラも部下をすり抜ける）
+                if (this.isMinion && other.id !== this.minionTarget.id) continue;
+                if (other.isMinion && this.id !== other.minionTarget.id) continue;
+                
                 let dx = this.x - other.x; let dy = this.y - other.y;
-                
-                // 【バグ修正】同じ座標に押し込まれた時の0割り(NaN)を防止
-                if (dx === 0 && dy === 0) {
-                    dx = Math.random() - 0.5;
-                    dy = Math.random() - 0.5;
-                }
-                
+                if (dx === 0 && dy === 0) { dx = Math.random() - 0.5; dy = Math.random() - 0.5; }
                 let dist = Math.hypot(dx, dy);
 
                 if (dist < this.r + other.r) {
                     let push = 10 * this.knockbackResist;
                     if (["風の", "疾風の", "爆炎の"].includes(this.adj)) { push = 60 * this.knockbackResist; createExplosion(this.x, this.y, "white", 15, 5, 10); } 
                     
-                    // 0距離での除算を完全に防止
-                    this.vx = (dx / dist) * push; 
-                    this.vy = (dy / dist) * push;
+                    // 部下は一切ノックバック（跳ね返り）しない
+                    if (!this.isMinion) {
+                        this.vx = (dx / dist) * push; 
+                        this.vy = (dy / dist) * push;
+                    }
 
                     if (this.cooldown === 0) {
                         this.dealDamageTo(other);
@@ -267,7 +311,40 @@
             if (Math.random() < target.evasion && !this.ignoreDef) { createExplosion(target.x, target.y, "gray", 8, 3, 3); return; }
             if (target.shield) { target.shield = false; createExplosion(target.x, target.y, "gold", 30, 6, 8); return; }
 
-            if (this.adj === "変異の" && Math.random() < 0.25 && !target.isClone) {
+            // ★ 新機能：魔王が最初に攻撃されたら100人の部下を召喚
+            if (target.noun === "魔王" && !target.hasSummonedMinions && !target.isClone && !this.isMinion) {
+                target.hasSummonedMinions = true;
+                alertMessage = `⚠️ 魔王【${target.roleName}】激怒！ 100人の部下が報復に襲来！ ⚠️`;
+                alertColor = "purple"; // 魔王の怒りは紫色で表現
+                alertTimer = 240;
+                
+                for(let i=0; i<100; i++) {
+                    let minionRole = { adj: "魔王の", noun: "部下", name: "魔王の部下" };
+                    let edge = Math.floor(Math.random() * 4);
+                    let startX, startY;
+                    // 画面の完全に外側から出現させる
+                    if (edge === 0) { startX = Math.random() * canvas.width; startY = -100; } 
+                    else if (edge === 1) { startX = canvas.width + 100; startY = Math.random() * canvas.height; } 
+                    else if (edge === 2) { startX = Math.random() * canvas.width; startY = canvas.height + 100; } 
+                    else { startX = -100; startY = Math.random() * canvas.height; } 
+
+                    let minion = new Circle("minion_" + Math.random(), minionRole, false, startX, startY);
+                    
+                    // 部下の専用ステータスを上書き
+                    minion.isMinion = true;
+                    minion.minionTarget = this; // 魔王を攻撃した「このキャラクター」をターゲットに設定
+                    minion.returningHome = false;
+                    minion.maxHp = 60; minion.hp = 60;
+                    minion.attack = 5;
+                    minion.r = 12;
+                    minion.color = "#8800ff"; // 部下は全員紫
+                    minion.immune = true; // 状態異常効かない
+                    circles.push(minion);
+                }
+                createExplosion(target.x, target.y, "purple", 100, 6, 12);
+            }
+
+            if (this.adj === "変異の" && Math.random() < 0.25 && !target.isClone && !target.isMinion) {
                 let randomAdj = adjectives[Math.floor(Math.random() * adjectives.length)];
                 let randomNoun = nouns[Math.floor(Math.random() * nouns.length)];
                 target.applyRole(randomAdj, randomNoun);
@@ -307,7 +384,6 @@
             let target = this.getNearestEnemy();
             if (!target) return;
             let dx = target.x - this.x; let dy = target.y - this.y;
-            // 【バグ修正】
             if (dx === 0 && dy === 0) dx = 0.1;
             let dist = Math.hypot(dx, dy);
             projectiles.push({
@@ -329,7 +405,8 @@
         getNearestEnemy() {
             let target = null, minDist = 99999;
             for (let c of circles) {
-                if (c.id !== this.id && c.hp > 0) {
+                // 部下は敵としてロックオンされない
+                if (c.hp > 0 && c.id !== this.id && !c.isMinion) {
                     let d = Math.hypot(this.x - c.x, this.y - c.y);
                     if (d < minDist) { minDist = d; target = c; }
                 }
@@ -339,7 +416,7 @@
 
         teleportBehindNearest() {
             let target = this.getNearestEnemy();
-            if (target && !isNaN(target.vx) && !isNaN(target.vy)) { // 【バグ修正】ワープ先の座標異常を防止
+            if (target && !isNaN(target.vx) && !isNaN(target.vy)) {
                 this.x = target.x - target.vx * 30; this.y = target.y - target.vy * 30; 
             }
         }
@@ -368,8 +445,9 @@
     }
 
     function handleDeath(deadCircle) {
-        let currentAlive = circles.filter(c => c.hp > 0).length;
+        let currentAlive = circles.filter(c => c.hp > 0 && !c.isMinion).length;
 
+        // 分身が倒された時の増援（200人以下 ＆ 増援回数3回未満）
         if (deadCircle.isClone && currentAlive <= 200 && reinforcementCount < 3) {
             reinforcementCount++;
             alertMessage = `⚠️ 分身討伐！ エリア外から100人が乱入！ (増援 ${reinforcementCount}/3) ⚠️`;
@@ -391,7 +469,6 @@
                 else { startX = 30; startY = Math.random() * canvas.height; } 
 
                 let reinforce = new Circle("reinforce_" + Math.random(), randomRole, false, startX, startY);
-                
                 let rushAngle = Math.atan2(safeZone.y - startY, safeZone.x - startX);
                 reinforce.vx = Math.cos(rushAngle) * reinforce.currentSpeed;
                 reinforce.vy = Math.sin(rushAngle) * reinforce.currentSpeed;
@@ -401,7 +478,8 @@
             createExplosion(deadCircle.x, deadCircle.y, "white", 100, 5, 15); 
         }
         
-        if (["召喚士", "魔物使い"].includes(deadCircle.noun) && !deadCircle.isClone) {
+        // ★ 幻術師、奇術師、影武者も分身を出すように追加！
+        if (["召喚士", "魔物使い", "幻術師", "奇術師", "影武者"].includes(deadCircle.noun) && !deadCircle.isClone) {
             for(let i=0; i<6; i++) {
                 let clone = new Circle(deadCircle.id, {name: "分身", adj: "無", noun: "無"}, true, deadCircle.x + (Math.random()*100-50), deadCircle.y + (Math.random()*100-50));
                 clone.maxHp = 100; clone.hp = 100; clone.attack = deadCircle.attack; clone.r = 15; clone.color = deadCircle.color;
@@ -459,7 +537,8 @@
 
             let hit = false;
             for (let c of circles) {
-                if (c.hp > 0 && c.id !== p.owner.id && Math.hypot(c.x - p.x, c.y - p.y) < p.size + c.r) {
+                // 弾丸も部下をすり抜けるように
+                if (c.hp > 0 && c.id !== p.owner.id && !c.isMinion && Math.hypot(c.x - p.x, c.y - p.y) < p.size + c.r) {
                     p.owner.dealDamageTo(c); hit = true; break;
                 }
             }
@@ -475,8 +554,11 @@
                 continue;
             }
             c.update(); c.draw();
-            aliveCount++; 
-            if (!c.isClone) mainWinner = c;
+            // 部下は生存者数にカウントしない
+            if (!c.isMinion) {
+                aliveCount++; 
+                if (!c.isClone) mainWinner = c;
+            }
         }
 
         for (let i = particles.length - 1; i >= 0; i--) {
@@ -500,6 +582,8 @@
             alertTimer--;
             ctx.fillStyle = alertColor === "red" 
                 ? `rgba(255, 50, 50, ${Math.min(1, alertTimer / 60)})`
+                : alertColor === "purple"
+                ? `rgba(200, 50, 255, ${Math.min(1, alertTimer / 60)})`
                 : `rgba(50, 200, 255, ${Math.min(1, alertTimer / 60)})`;
             ctx.font = "bold 80px sans-serif"; ctx.textAlign = "center";
             ctx.shadowBlur = 30; ctx.shadowColor = alertColor;
