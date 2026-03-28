@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<title>フルスクリーン神域版！増援制限バトルロイヤル</title>
+<title>フルスクリーン神域版！増援リセットバトルロイヤル</title>
 <style>
     html, body {
         margin: 0; padding: 0;
@@ -64,7 +64,9 @@
     // 増援の管理用変数
     let alertMessage = "";
     let alertTimer = 0;
+    let alertColor = "red"; // テロップの色を動的に変える用
     let reinforcementCount = 0; // 増援が発生した回数
+    let lastResetTime = Date.now(); // 30秒リセット用のタイマー基準時間
 
     let safeZone = {
         x: canvas.width / 2, y: canvas.height / 2,
@@ -341,13 +343,12 @@
     }
 
     function handleDeath(deadCircle) {
-        // 現在生き残っている人数を計算
         let currentAlive = circles.filter(c => c.hp > 0).length;
 
-        // 分身が倒された時の条件：200人以下 ＆ 増援回数3回未満
         if (deadCircle.isClone && currentAlive <= 200 && reinforcementCount < 3) {
             reinforcementCount++;
             alertMessage = `⚠️ 分身討伐！ エリア外から100人が乱入！ (増援 ${reinforcementCount}/3) ⚠️`;
+            alertColor = "red";
             alertTimer = 180; 
             
             for(let i=0; i<100; i++) {
@@ -395,6 +396,17 @@
     for (let i = 0; i < 100; i++) circles.push(new Circle(i, roles[i]));
 
     function loop() {
+        // ★ 新機能：30秒ごとに増援回数をリセット
+        if (Date.now() - lastResetTime >= 30000) {
+            if (reinforcementCount > 0) {
+                alertMessage = "🔄 増援の上限回数がリセットされました！ 🔄";
+                alertColor = "cyan"; // リセット時は青色でお知らせ
+                alertTimer = 180;
+            }
+            reinforcementCount = 0;
+            lastResetTime = Date.now();
+        }
+
         ctx.fillStyle = "#0a0a1a"; ctx.fillRect(0, 0, canvas.width, canvas.height);
 
         safeZone.r -= 0.25; 
@@ -460,11 +472,15 @@
         ctx.fillStyle = "#fff"; ctx.font = "bold 60px sans-serif"; ctx.textAlign = "left";
         ctx.fillText("生存者: " + aliveCount, 50, 80);
 
+        // アラートの描画
         if (alertTimer > 0) {
             alertTimer--;
-            ctx.fillStyle = `rgba(255, 50, 50, ${Math.min(1, alertTimer / 60)})`;
+            // alertColor を使ってテロップの色を描画
+            ctx.fillStyle = alertColor === "red" 
+                ? `rgba(255, 50, 50, ${Math.min(1, alertTimer / 60)})`
+                : `rgba(50, 200, 255, ${Math.min(1, alertTimer / 60)})`;
             ctx.font = "bold 80px sans-serif"; ctx.textAlign = "center";
-            ctx.shadowBlur = 30; ctx.shadowColor = "red";
+            ctx.shadowBlur = 30; ctx.shadowColor = alertColor;
             ctx.fillText(alertMessage, canvas.width / 2, canvas.height / 4);
             ctx.shadowBlur = 0;
         }
